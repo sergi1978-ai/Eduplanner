@@ -2,13 +2,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { CURRICULUM_DATA } from '../constants';
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+// Auxiliar per crear l'instància de l'API just abans de l'ús
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const suggestActivityDetails = async (title: string, grade: string) => {
-  if (!apiKey) throw new Error("API Key missing");
-  
-  const modelId = 'gemini-2.5-flash';
+  const ai = getAI();
+  const modelId = 'gemini-3-flash-preview';
   const prompt = `
     Ets un mestre expert de primària a Catalunya redactant la programació d'aula.
     Genera una descripció tècnica i completa per a l'activitat escolar: "${title}" (Nivell: ${grade}).
@@ -36,9 +35,8 @@ export const suggestActivityDetails = async (title: string, grade: string) => {
 };
 
 export const expandActivityContent = async (title: string, shortDescription: string, grade: string) => {
-  if (!apiKey) throw new Error("API Key missing");
-
-  const modelId = 'gemini-2.5-flash';
+  const ai = getAI();
+  const modelId = 'gemini-3-flash-preview';
   const prompt = `
     Ets un mestre expert redactant la programació d'aula.
     
@@ -68,9 +66,8 @@ export const expandActivityContent = async (title: string, shortDescription: str
 };
 
 export const suggestEvaluation = async (title: string, description: string, grade: string) => {
-  if (!apiKey) throw new Error("API Key missing");
-
-  const modelId = 'gemini-2.5-flash';
+  const ai = getAI();
+  const modelId = 'gemini-3-flash-preview';
   const prompt = `
     Ets un especialista en avaluació educativa.
     Activitat: "${title}".
@@ -100,9 +97,8 @@ export const suggestEvaluation = async (title: string, description: string, grad
 };
 
 export const generateRubricHTML = async (title: string, description: string, criteria: string[], grade: string) => {
-  if (!apiKey) throw new Error("API Key missing");
-  
-  const modelId = 'gemini-2.5-flash';
+  const ai = getAI();
+  const modelId = 'gemini-3-flash-preview';
   
   const criteriaListString = criteria.length > 0 ? criteria.map(c => `- ${c}`).join('\n') : 'Cap criteri específic seleccionat.';
   
@@ -141,7 +137,6 @@ export const generateRubricHTML = async (title: string, description: string, cri
         contents: prompt,
     });
     const text = response.text || '';
-    // Clean markdown code blocks if present
     return text.replace(/```html/g, '').replace(/```/g, '').trim();
   } catch (error) {
     console.error("Gemini rubric HTML error:", error);
@@ -150,16 +145,14 @@ export const generateRubricHTML = async (title: string, description: string, cri
 };
 
 export const suggestCurriculumLinks = async (title: string, description: string) => {
-  if (!apiKey) throw new Error("API Key missing");
-  
-  // Create a simplified version of the curriculum for context to save tokens/complexity
+  const ai = getAI();
   const curriculumContext = CURRICULUM_DATA.map(c => ({
     id: c.id,
     area: c.area,
     text: `${c.saber}: ${c.description}`
   })).map(c => JSON.stringify(c)).join('\n');
 
-  const modelId = 'gemini-2.5-flash';
+  const modelId = 'gemini-3-pro-preview'; // Utilitzem Pro per a tasques de raonament complex
   const prompt = `
     I have an educational activity.
     Title: "${title}"
@@ -186,7 +179,6 @@ export const suggestCurriculumLinks = async (title: string, description: string)
       }
     });
     const text = response.text || '[]';
-    // Clean up potentially wrapped markdown
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanText) as { id: string; reason: string }[];
   } catch (error) {
@@ -196,9 +188,8 @@ export const suggestCurriculumLinks = async (title: string, description: string)
 };
 
 export const chatWithCurriculum = async (message: string, history: {role: string, text: string}[]) => {
-    if (!apiKey) throw new Error("API Key missing");
-
-    const modelId = 'gemini-2.5-flash';
+    const ai = getAI();
+    const modelId = 'gemini-3-flash-preview';
     const systemInstruction = `
     You are an expert educational planner and consultant specializing in the Catalan curriculum for primary education.
     Your goal is to help teachers plan activities, understand curriculum competencies, and evaluate student progress.
