@@ -2,35 +2,47 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { CURRICULUM_DATA } from '../constants';
 
-// Auxiliar per crear l'instància de l'API amb la clau actual de l'entorn
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-const handleApiError = async (error: any) => {
-  console.error("Gemini API Error:", error);
-  const message = error?.message || "";
-  
-  // Si el projecte no es troba o no hi ha permís per al model Pro, sugerim el Flash o revisar la clau
-  if (message.includes("Requested entity was not found")) {
-    return "El model o projecte no s'ha trobat. Assegura't d'estar fent servir una clau d'AI Studio vàlida i que el model 'gemini-3-flash-preview' estigui disponible.";
+// Funció segura per obtenir la clau d'API de l'entorn
+const getApiKey = () => {
+  // En entorns de navegador, process.env pot no estar disponible directament 
+  // sense un bundler que el mapegi. Assumim que l'entorn el proporciona segons instruccions.
+  const key = process.env.API_KEY;
+  if (!key) {
+    console.error("EDUPLAN ERROR: No s'ha trobat la variable d'entorn API_KEY.");
   }
-  
-  if (message.includes("API_KEY_INVALID")) {
-    return "La clau d'API no és vàlida. Revisa la configuració de les variables d'entorn.";
-  }
-  
-  return "Problema de connexió amb la IA. Revisa la teva clau d'API.";
+  return key;
 };
 
-// Utilitzem el model Flash per a totes les tasques per garantir el funcionament gratuït
+const handleApiError = async (error: any) => {
+  console.error("EDUPLAN GEMINI ERROR DETALLAT:", error);
+  
+  const message = error?.message || "";
+  const status = error?.status || (error?.cause?.status);
+
+  if (message.includes("API key not valid") || status === 401) {
+    return "Error: La clau d'API no és vàlida o no s'ha configurat correctament a Vercel.";
+  }
+  
+  if (message.includes("model not found") || message.includes("Requested entity was not found") || status === 404) {
+    return "Error: El model 'gemini-3-flash-preview' no està disponible per a la teva clau/regió.";
+  }
+
+  if (status === 429) {
+    return "Error: Massa peticions. Espera uns segons (quota del pla gratuït).";
+  }
+  
+  return `Error de connexió: ${message || "Revisa la consola del navegador per a més detalls."}`;
+};
+
+// Utilitzem el model Flash que és el més estable per al pla gratuït
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
 
 export const suggestActivityDetails = async (title: string, grade: string) => {
-  const ai = getAI();
-  const prompt = `
-    Ets un mestre expert de primària a Catalunya redactant la programació d'aula.
-    Genera una descripció tècnica i completa per a l'activitat escolar: "${title}" (Nivell: ${grade}).
-    Inclou objectiu didàctic i dinàmica. Text pla en Català.
-  `;
+  const key = getApiKey();
+  if (!key) return "Configura la API_KEY a Vercel.";
+  
+  const ai = new GoogleGenAI({ apiKey: key });
+  const prompt = `Ets un mestre expert de Catalunya. Genera una descripció pedagògica per a l'activitat: "${title}" (Nivell: ${grade}). Inclou objectiu didàctic i dinàmica. Respon en Català i text pla.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -44,14 +56,11 @@ export const suggestActivityDetails = async (title: string, grade: string) => {
 };
 
 export const expandActivityContent = async (title: string, shortDescription: string, grade: string) => {
-  const ai = getAI();
-  const prompt = `
-    Ets un mestre expert redactant la programació d'aula.
-    Títol: "${title}"
-    Descripció: "${shortDescription}"
-    Nivell: ${grade}
-    Genera una seqüència didàctica detallada (Introducció, Desenvolupament, Tancament). Text pla en Català.
-  `;
+  const key = getApiKey();
+  if (!key) return "Configura la API_KEY.";
+  
+  const ai = new GoogleGenAI({ apiKey: key });
+  const prompt = `Seqüència didàctica detallada per a l'activitat "${title}" (${grade}). Descripció base: ${shortDescription}. Genera: Introducció, Desenvolupament i Tancament. Català, text pla.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -65,13 +74,11 @@ export const expandActivityContent = async (title: string, shortDescription: str
 };
 
 export const suggestEvaluation = async (title: string, description: string, grade: string) => {
-  const ai = getAI();
-  const prompt = `
-    Ets un especialista en avaluació educativa.
-    Activitat: "${title}".
-    Nivell: ${grade}.
-    Genera indicadors d'avaluació i instruments recomanats. Text pla en Català.
-  `;
+  const key = getApiKey();
+  if (!key) return "Configura la API_KEY.";
+  
+  const ai = new GoogleGenAI({ apiKey: key });
+  const prompt = `Ets expert en avaluació competencial. Genera indicadors d'avaluació i instruments per a l'activitat "${title}" de ${grade}. Descripció: ${description}. Català, text pla.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -85,15 +92,13 @@ export const suggestEvaluation = async (title: string, description: string, grad
 };
 
 export const generateRubricHTML = async (title: string, description: string, criteria: string[], grade: string) => {
-  const ai = getAI();
+  const key = getApiKey();
+  if (!key) return "<p>Configura la API_KEY.</p>";
+  
+  const ai = new GoogleGenAI({ apiKey: key });
   const criteriaListString = criteria.map(c => `- ${c}`).join('\n');
   
-  const prompt = `
-    Genera una rúbrica en format taula HTML per a l'activitat "${title}".
-    Criteris: ${criteriaListString}
-    Nivell: ${grade}
-    Genera només el codi HTML d'una taula <table>.
-  `;
+  const prompt = `Genera una rúbrica en format taula HTML per a l'activitat "${title}". Criteris: ${criteriaListString}. Nivell: ${grade}. Genera NOMÉS el codi HTML de la <table>.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -104,23 +109,23 @@ export const generateRubricHTML = async (title: string, description: string, cri
     return text.replace(/```html/g, '').replace(/```/g, '').trim();
   } catch (error) {
     const err = await handleApiError(error);
-    return `<p class="text-red-500">${err}</p>`;
+    return `<div class="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200">${err}</div>`;
   }
 };
 
 export const suggestCurriculumLinks = async (title: string, description: string) => {
-  const ai = getAI();
-  const curriculumContext = CURRICULUM_DATA.map(c => ({
+  const key = getApiKey();
+  if (!key) return [];
+  
+  const ai = new GoogleGenAI({ apiKey: key });
+  // Limitem el context per no saturar el prompt en el model flash
+  const curriculumContext = CURRICULUM_DATA.slice(0, 40).map(c => ({
     id: c.id,
     area: c.area,
     text: `${c.saber}: ${c.description}`
   })).map(c => JSON.stringify(c)).join('\n');
 
-  const prompt = `
-    Analyze activity "${title}" and find matches in this curriculum:
-    ${curriculumContext}
-    Return ONLY a JSON array with items like {"id": "...", "reason": "..."} in Catalan.
-  `;
+  const prompt = `Troba els 3 millors vincles curriculars per a l'activitat "${title}". Currículum:\n${curriculumContext}`;
 
   try {
     const response = await ai.models.generateContent({
@@ -133,26 +138,27 @@ export const suggestCurriculumLinks = async (title: string, description: string)
           items: {
             type: Type.OBJECT,
             properties: {
-              id: { type: Type.STRING, description: 'The curriculum item ID' },
-              reason: { type: Type.STRING, description: 'The reason why this item fits the activity in Catalan' },
+              id: { type: Type.STRING },
+              reason: { type: Type.STRING },
             },
-            required: ['id', 'reason'],
-            propertyOrdering: ['id', 'reason']
+            required: ['id', 'reason']
           }
         }
       }
     });
-    const text = response.text || '[]';
-    return JSON.parse(text.trim());
+    return JSON.parse(response.text || '[]');
   } catch (error) {
-    await handleApiError(error);
+    console.error("Error en suggestCurriculumLinks", error);
     return [];
   }
 };
 
 export const chatWithCurriculum = async (message: string, history: {role: string, text: string}[]) => {
-    const ai = getAI();
-    const systemInstruction = "Ets un expert en el currículum català de primària. Respon sempre en català i de forma professional per a docents.";
+    const key = getApiKey();
+    if (!key) throw new Error("API_KEY no configurada.");
+    
+    const ai = new GoogleGenAI({ apiKey: key });
+    const systemInstruction = "Ets un expert en el currículum català de primària. Respon sempre en català. Sigues concís i professional.";
 
     try {
         const chatSession = ai.chats.create({
