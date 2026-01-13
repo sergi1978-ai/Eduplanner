@@ -1,5 +1,6 @@
+
 import React, { ReactNode } from 'react';
-import { LayoutGrid, BookOpen, List, MessageCircle } from 'lucide-react';
+import { LayoutGrid, BookOpen, List, MessageCircle, ExternalLink } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface LayoutProps {
@@ -44,7 +45,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-100 flex flex-col gap-4 flex-none">
+        <div className="p-4 border-t border-gray-100 flex flex-col gap-3 flex-none">
             <button 
                 onClick={onOpenChat}
                 className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl px-4 py-3 flex items-center justify-center gap-2 hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
@@ -53,9 +54,19 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
                 <span>Chat IA</span>
             </button>
             
-            <div className="text-[10px] text-gray-400 text-center leading-tight">
-              Dissenyat pel <br/>
-              <strong className="text-gray-600">Servei Educatiu Vallès Occidental VIII</strong>
+            <div className="flex flex-col items-center gap-1 mt-2">
+                <a 
+                    href="https://aistudio.google.com/app/apikey" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-blue-600 hover:underline flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity"
+                >
+                    Obtenir clau gratuïta <ExternalLink size={10} />
+                </a>
+                <div className="text-[10px] text-gray-400 text-center leading-tight">
+                  Servei Educatiu <br/>
+                  <strong className="text-gray-600">Vallès Occidental VIII</strong>
+                </div>
             </div>
         </div>
       </aside>
@@ -63,17 +74,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
       {/* Main Content */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen">
         <div className="max-w-5xl mx-auto">
-          <header className="mb-8 flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-800 capitalize">
-                {navItems.find(n => n.id === currentView)?.label}
-            </h2>
-            {/* API Key Warning - Hidden if valid, but good practice */}
-            {!process.env.API_KEY && (
-                <div className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-bold border border-red-200">
-                    API Key Missing
-                </div>
-            )}
-          </header>
           {children}
         </div>
       </main>
